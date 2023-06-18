@@ -1,0 +1,8 @@
+[package]
+name = "path_graph"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0.30"
+camino = "1.1.4"
