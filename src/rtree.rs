@@ -1,14 +1,14 @@
-use crate::node::{Id, Node};
+use crate::implementation::{Id, NodeImplementation};
 use crate::{Error, Result};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-struct Dag<I: Eq + PartialEq + Hash + Clone, T: Id<I>> {
-    root_node: Option<Node<I, T>>,
-    child_nodes: HashMap<I, Node<I, T>>,
+struct RTree<I: Eq + PartialEq + Hash + Clone, T: Id<I>> {
+    root_node: Option<NodeImplementation<I, T>>,
+    child_nodes: HashMap<I, NodeImplementation<I, T>>,
 }
 
-impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> Dag<I, T> {
+impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> RTree<I, T> {
     pub fn new() -> Self {
         Self {
             root_node: None,
@@ -16,7 +16,11 @@ impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> Dag<I, T> {
         }
     }
 
-    pub fn add_node(&mut self, parent_id: Option<I>, mut node: Node<I, T>) -> Result<()> {
+    pub fn add_node(
+        &mut self,
+        parent_id: Option<I>,
+        mut node: NodeImplementation<I, T>,
+    ) -> Result<()> {
         if parent_id.is_none() && self.root_node.is_some() {
             return Err(Error::RootNodeAlreadyExists);
         }
@@ -34,7 +38,7 @@ impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> Dag<I, T> {
         Ok(())
     }
 
-    pub fn get_node(&self, id: &I) -> Option<&Node<I, T>> {
+    pub fn get_node(&self, id: &I) -> Option<&NodeImplementation<I, T>> {
         if let Some(node) = self.child_nodes.get(id) {
             Some(node)
         } else if let Some(root_node) = &self.root_node {
@@ -48,7 +52,7 @@ impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> Dag<I, T> {
         }
     }
 
-    pub fn get_mut_node(&mut self, id: &I) -> Option<&mut Node<I, T>> {
+    pub fn get_mut_node(&mut self, id: &I) -> Option<&mut NodeImplementation<I, T>> {
         if let Some(node) = self.child_nodes.get_mut(id) {
             Some(node)
         } else if let Some(root_node) = &mut self.root_node {
@@ -62,7 +66,7 @@ impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> Dag<I, T> {
         }
     }
 
-    pub fn remove_node(&mut self, id: &I) -> Option<Node<I, T>> {
+    pub fn remove_node(&mut self, id: &I) -> Option<NodeImplementation<I, T>> {
         if let Some(node) = self.child_nodes.remove(id) {
             if let Some(parent_id) = node.parent_id() {
                 if let Some(parent_node) = self.get_mut_node(&parent_id) {
@@ -89,7 +93,7 @@ impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> Dag<I, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node::Id;
+    use crate::implementation::Id;
 
     impl Id<i32> for i32 {
         fn id(&self) -> i32 {
@@ -99,8 +103,8 @@ mod tests {
 
     #[test]
     fn add_root_node() {
-        let mut dag = Dag::<i32, i32>::new();
-        let node = Node::new(1);
+        let mut dag = RTree::<i32, i32>::new();
+        let node = NodeImplementation::new(1);
         dag.add_node(None, node).unwrap();
         assert_eq!(dag.len(), 1);
 
@@ -112,10 +116,10 @@ mod tests {
 
     #[test]
     fn add_child_to_a_root_node() {
-        let mut dag = Dag::<i32, i32>::new();
-        let node = Node::new(1);
+        let mut dag = RTree::<i32, i32>::new();
+        let node = NodeImplementation::new(1);
         dag.add_node(None, node).unwrap();
-        let node = Node::new(2);
+        let node = NodeImplementation::new(2);
         dag.add_node(Some(1), node).unwrap();
         assert_eq!(dag.len(), 2);
 
@@ -131,26 +135,26 @@ mod tests {
 
     #[test]
     fn fail_to_add_2_root_nodes() {
-        let mut dag = Dag::<i32, i32>::new();
-        let node = Node::new(1);
+        let mut dag = RTree::<i32, i32>::new();
+        let node = NodeImplementation::new(1);
         dag.add_node(None, node).unwrap();
-        let node = Node::new(2);
+        let node = NodeImplementation::new(2);
         assert!(dag.add_node(None, node).is_err());
     }
 
     #[test]
     fn fail_to_add_child_to_non_existent_parent() {
-        let mut dag = Dag::<i32, i32>::new();
-        let node = Node::new(1);
+        let mut dag = RTree::<i32, i32>::new();
+        let node = NodeImplementation::new(1);
         dag.add_node(None, node).unwrap();
-        let node = Node::new(2);
+        let node = NodeImplementation::new(2);
         assert!(dag.add_node(Some(2), node).is_err());
     }
 
     #[test]
     fn remove_root_node() {
-        let mut dag = Dag::<i32, i32>::new();
-        let node = Node::new(1);
+        let mut dag = RTree::<i32, i32>::new();
+        let node = NodeImplementation::new(1);
         dag.add_node(None, node).unwrap();
         assert_eq!(dag.len(), 1);
         dag.remove_node(&1);
@@ -159,10 +163,10 @@ mod tests {
 
     #[test]
     fn remove_child_node() {
-        let mut dag = Dag::<i32, i32>::new();
-        let node = Node::new(1);
+        let mut dag = RTree::<i32, i32>::new();
+        let node = NodeImplementation::new(1);
         dag.add_node(None, node).unwrap();
-        let node = Node::new(2);
+        let node = NodeImplementation::new(2);
         dag.add_node(Some(1), node).unwrap();
         assert_eq!(dag.len(), 2);
         dag.remove_node(&2);
