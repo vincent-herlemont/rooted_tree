@@ -1,8 +1,8 @@
 mod node;
-mod rtree;
+mod rooted_tree;
 
 pub use node::Node;
-pub use rtree::RTree;
+pub use rooted_tree::RootedTree;
 
 use thiserror::Error;
 

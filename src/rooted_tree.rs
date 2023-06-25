@@ -3,12 +3,12 @@ use crate::{Error, Result};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-pub struct RTree<I: Eq + PartialEq + Clone, N: Node<I>> {
+pub struct RootedTree<I: Eq + PartialEq + Clone, N: Node<I>> {
     root_node: Option<N>,
     child_nodes: HashMap<I, N>,
 }
 
-impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RTree<I, N> {
+impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
     pub fn new() -> Self {
         Self {
             root_node: None,
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn add_root_node() {
-        let mut r_tree = RTree::<i32, DataNode>::new();
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
         r_tree.add_node(None, node).unwrap();
         assert_eq!(r_tree.len(), 1);
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn add_child_to_a_root_node() {
-        let mut r_tree = RTree::<i32, DataNode>::new();
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
         r_tree.add_node(None, node).unwrap();
         let node = DataNode::new(2);
@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn fail_to_add_2_root_nodes() {
-        let mut r_tree = RTree::<i32, DataNode>::new();
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
         r_tree.add_node(None, node).unwrap();
         let node = DataNode::new(2);
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn fail_to_add_child_to_non_existent_parent() {
-        let mut r_tree = RTree::<i32, DataNode>::new();
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
         assert!(matches!(
             r_tree.add_node(Some(2), node),
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn remove_root_node() {
-        let mut r_tree = RTree::<i32, DataNode>::new();
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
         r_tree.add_node(None, node).unwrap();
         assert_eq!(r_tree.len(), 1);
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn remove_child_node() {
-        let mut r_tree = RTree::<i32, DataNode>::new();
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
         r_tree.add_node(None, node).unwrap();
         let node = DataNode::new(2);
