@@ -1,7 +1,8 @@
-mod id;
-mod implementation;
 mod node;
 mod rtree;
+
+pub use node::Node;
+pub use rtree::RTree;
 
 use thiserror::Error;
 
@@ -15,4 +16,6 @@ pub enum Error {
     RootNodeAlreadyExists,
     #[error("Parent node does not exist")]
     ParentNodeDoesNotExist,
+    #[error("Node does not exist")]
+    NodeDoesNotExist,
 }
