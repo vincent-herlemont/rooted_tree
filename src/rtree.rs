@@ -1,4 +1,5 @@
-use crate::implementation::{Id, NodeImplementation};
+use crate::id::Id;
+use crate::implementation::NodeImplementation;
 use crate::{Error, Result};
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -93,7 +94,6 @@ impl<I: Eq + PartialEq + Hash + Clone, T: Id<I>> RTree<I, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::implementation::Id;
 
     impl Id<i32> for i32 {
         fn id(&self) -> i32 {

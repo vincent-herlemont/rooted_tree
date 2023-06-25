@@ -1,11 +1,8 @@
+use crate::id::Id;
 use camino::Utf8Path;
 use camino::Utf8PathBuf;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-
-pub trait Id<T> {
-    fn id(&self) -> T;
-}
 
 #[derive(Debug)]
 pub struct NodeImplementation<I, T: Id<I>> {
