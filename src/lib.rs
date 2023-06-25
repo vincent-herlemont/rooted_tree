@@ -1,8 +1,8 @@
 mod node;
 mod rooted_tree;
 
-pub use node::Node;
-pub use rooted_tree::RootedTree;
+pub use crate::node::Node;
+pub use crate::rooted_tree::RootedTree;
 
 use thiserror::Error;
 
