@@ -1,5 +1,10 @@
+mod diff;
+mod from;
 mod node;
 mod rooted_tree;
+
+#[cfg(test)]
+mod test_data;
 
 pub use crate::node::Node;
 pub use crate::rooted_tree::RootedTree;
