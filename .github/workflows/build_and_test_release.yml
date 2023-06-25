@@ -12,7 +12,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+# TODO: windows-latest is not supported yet
+#        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest,  macOS-latest]
         toolchain: [stable]
         feature: [ no_feature ]
     steps:
