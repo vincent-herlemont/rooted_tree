@@ -1,7 +1,7 @@
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use camino::Utf8PathBuf;
-use camino::Utf8Path;
 
 pub trait Id<T> {
     fn id(&self) -> T;
@@ -14,7 +14,7 @@ pub struct Node<I, T: Id<I>> {
     child_ids: HashSet<I>,
 }
 
-impl <I: Hash + Eq + PartialEq, T: Id<I>> Node<I, T> {
+impl<I: Hash + Eq + PartialEq + Clone, T: Id<I>> Node<I, T> {
     pub fn new(value: T) -> Self {
         Self {
             inner: value,
@@ -23,20 +23,28 @@ impl <I: Hash + Eq + PartialEq, T: Id<I>> Node<I, T> {
         }
     }
 
-    pub fn parent_id(&self) -> Option<&I> {
-        self.parent_id.as_ref()
+    pub fn parent_id(&self) -> Option<I> {
+        self.parent_id.clone()
     }
 
-    pub fn child_ids(&self) -> &HashSet<I> {
-        &self.child_ids
+    pub fn child_ids(&self) -> HashSet<I> {
+        self.child_ids.clone()
+    }
+
+    pub fn child_ids_vec(&self) -> Vec<I> {
+        self.child_ids.iter().cloned().collect::<Vec<I>>()
     }
 
     pub fn set_parent_id(&mut self, parent: I) {
         self.parent_id = Some(parent);
     }
 
-    pub fn add_child_id(&mut self, branch: I) {
-        self.child_ids.insert(branch);
+    pub fn add_child_id(&mut self, child_id: I) {
+        self.child_ids.insert(child_id);
+    }
+
+    pub fn remove_child_id(&mut self, child_id: &I) {
+        self.child_ids.remove(child_id);
     }
 
     pub fn inner(&self) -> &T {
@@ -65,7 +73,10 @@ fn from_paths(paths: Vec<&str>) -> HashMap<String, Node<String, Utf8PathBuf>> {
     let mut map: HashMap<String, Node<String, Utf8PathBuf>> = HashMap::new();
     map.insert(root_path.id(), Node::new(root_path.clone()));
 
-    let paths = paths.iter().map(|path| Utf8PathBuf::from(path)).collect::<Vec<Utf8PathBuf>>();
+    let paths = paths
+        .iter()
+        .map(|path| Utf8PathBuf::from(path))
+        .collect::<Vec<Utf8PathBuf>>();
 
     for path in paths {
         let mut current_path = root_path.clone();
@@ -93,7 +104,6 @@ fn from_paths(paths: Vec<&str>) -> HashMap<String, Node<String, Utf8PathBuf>> {
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_from_paths() {
         let paths = vec![
@@ -107,31 +117,116 @@ mod tests {
         assert_eq!(tree.len(), 7);
         assert_eq!(tree.get(&"/".to_string()).unwrap().parent_id, None);
         assert_eq!(tree.get(&"/".to_string()).unwrap().child_ids.len(), 1);
-        assert!(tree.get(&"/".to_string()).unwrap().child_ids.get(&"/home".to_string()).is_some());
+        assert!(tree
+            .get(&"/".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home".to_string())
+            .is_some());
 
-        assert_eq!(tree.get(&"/home".to_string()).unwrap().parent_id, Some("/".to_string()));
+        assert_eq!(
+            tree.get(&"/home".to_string()).unwrap().parent_id,
+            Some("/".to_string())
+        );
         assert_eq!(tree.get(&"/home".to_string()).unwrap().child_ids.len(), 1);
-        assert!(tree.get(&"/home".to_string()).unwrap().child_ids.get(&"/home/username".to_string()).is_some());
+        assert!(tree
+            .get(&"/home".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username".to_string())
+            .is_some());
 
+        assert_eq!(
+            tree.get(&"/home/username".to_string()).unwrap().parent_id,
+            Some("/home".to_string())
+        );
+        assert_eq!(
+            tree.get(&"/home/username".to_string())
+                .unwrap()
+                .child_ids
+                .len(),
+            2
+        );
+        assert!(tree
+            .get(&"/home/username".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username/Downloads".to_string())
+            .is_some());
+        assert!(tree
+            .get(&"/home/username".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username/Documents".to_string())
+            .is_some());
 
-        assert_eq!(tree.get(&"/home/username".to_string()).unwrap().parent_id, Some("/home".to_string()));
-        assert_eq!(tree.get(&"/home/username".to_string()).unwrap().child_ids.len(), 2);
-        assert!(tree.get(&"/home/username".to_string()).unwrap().child_ids.get(&"/home/username/Downloads".to_string()).is_some());
-        assert!(tree.get(&"/home/username".to_string()).unwrap().child_ids.get(&"/home/username/Documents".to_string()).is_some());
+        assert_eq!(
+            tree.get(&"/home/username/Downloads".to_string())
+                .unwrap()
+                .parent_id,
+            Some("/home/username".to_string())
+        );
+        assert_eq!(
+            tree.get(&"/home/username/Downloads".to_string())
+                .unwrap()
+                .child_ids
+                .len(),
+            0
+        );
 
-        assert_eq!(tree.get(&"/home/username/Downloads".to_string()).unwrap().parent_id, Some("/home/username".to_string()));
-        assert_eq!(tree.get(&"/home/username/Downloads".to_string()).unwrap().child_ids.len(), 0);
+        assert_eq!(
+            tree.get(&"/home/username/Documents".to_string())
+                .unwrap()
+                .parent_id,
+            Some("/home/username".to_string())
+        );
+        assert_eq!(
+            tree.get(&"/home/username/Documents".to_string())
+                .unwrap()
+                .child_ids
+                .len(),
+            1
+        );
+        assert!(tree
+            .get(&"/home/username/Documents".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username/Documents/Books".to_string())
+            .is_some());
 
-        assert_eq!(tree.get(&"/home/username/Documents".to_string()).unwrap().parent_id, Some("/home/username".to_string()));
-        assert_eq!(tree.get(&"/home/username/Documents".to_string()).unwrap().child_ids.len(), 1);
-        assert!(tree.get(&"/home/username/Documents".to_string()).unwrap().child_ids.get(&"/home/username/Documents/Books".to_string()).is_some());
+        assert_eq!(
+            tree.get(&"/home/username/Documents/Books".to_string())
+                .unwrap()
+                .parent_id,
+            Some("/home/username/Documents".to_string())
+        );
+        assert_eq!(
+            tree.get(&"/home/username/Documents/Books".to_string())
+                .unwrap()
+                .child_ids
+                .len(),
+            1
+        );
+        assert!(tree
+            .get(&"/home/username/Documents/Books".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username/Documents/Books/Programming".to_string())
+            .is_some());
 
-        assert_eq!(tree.get(&"/home/username/Documents/Books".to_string()).unwrap().parent_id, Some("/home/username/Documents".to_string()));
-        assert_eq!(tree.get(&"/home/username/Documents/Books".to_string()).unwrap().child_ids.len(), 1);
-        assert!(tree.get(&"/home/username/Documents/Books".to_string()).unwrap().child_ids.get(&"/home/username/Documents/Books/Programming".to_string()).is_some());
-
-        assert_eq!(tree.get(&"/home/username/Documents/Books/Programming".to_string()).unwrap().parent_id, Some("/home/username/Documents/Books".to_string()));
-        assert_eq!(tree.get(&"/home/username/Documents/Books/Programming".to_string()).unwrap().child_ids.len(), 0);
+        assert_eq!(
+            tree.get(&"/home/username/Documents/Books/Programming".to_string())
+                .unwrap()
+                .parent_id,
+            Some("/home/username/Documents/Books".to_string())
+        );
+        assert_eq!(
+            tree.get(&"/home/username/Documents/Books/Programming".to_string())
+                .unwrap()
+                .child_ids
+                .len(),
+            0
+        );
     }
 
     #[test]
@@ -162,9 +257,24 @@ mod tests {
         assert_eq!(tree.len(), 4);
         assert_eq!(tree.get(&"/".to_string()).unwrap().parent_id, None);
         assert_eq!(tree.get(&"/".to_string()).unwrap().child_ids.len(), 3);
-        assert!(tree.get(&"/".to_string()).unwrap().child_ids.get(&"/home".to_string()).is_some());
-        assert!(tree.get(&"/".to_string()).unwrap().child_ids.get(&"/bin".to_string()).is_some());
-        assert!(tree.get(&"/".to_string()).unwrap().child_ids.get(&"/etc".to_string()).is_some());
+        assert!(tree
+            .get(&"/".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home".to_string())
+            .is_some());
+        assert!(tree
+            .get(&"/".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/bin".to_string())
+            .is_some());
+        assert!(tree
+            .get(&"/".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/etc".to_string())
+            .is_some());
     }
 
     #[test]
@@ -173,10 +283,29 @@ mod tests {
         let paths = vec!["/home/username/Documents", "/home/username/Downloads"];
         let tree = from_paths(paths);
         assert_eq!(tree.len(), 5);
-        assert_eq!(tree.get(&"/home/username".to_string()).unwrap().parent_id, Some("/home".to_string()));
-        assert_eq!(tree.get(&"/home/username".to_string()).unwrap().child_ids.len(), 2);
-        assert!(tree.get(&"/home/username".to_string()).unwrap().child_ids.get(&"/home/username/Documents".to_string()).is_some());
-        assert!(tree.get(&"/home/username".to_string()).unwrap().child_ids.get(&"/home/username/Downloads".to_string()).is_some());
+        assert_eq!(
+            tree.get(&"/home/username".to_string()).unwrap().parent_id,
+            Some("/home".to_string())
+        );
+        assert_eq!(
+            tree.get(&"/home/username".to_string())
+                .unwrap()
+                .child_ids
+                .len(),
+            2
+        );
+        assert!(tree
+            .get(&"/home/username".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username/Documents".to_string())
+            .is_some());
+        assert!(tree
+            .get(&"/home/username".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home/username/Downloads".to_string())
+            .is_some());
     }
 
     #[test]
@@ -187,7 +316,17 @@ mod tests {
         assert_eq!(tree.len(), 5);
         assert_eq!(tree.get(&"/".to_string()).unwrap().parent_id, None);
         assert_eq!(tree.get(&"/".to_string()).unwrap().child_ids.len(), 2);
-        assert!(tree.get(&"/".to_string()).unwrap().child_ids.get(&"/home".to_string()).is_some());
-        assert!(tree.get(&"/".to_string()).unwrap().child_ids.get(&"/bin".to_string()).is_some());
+        assert!(tree
+            .get(&"/".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/home".to_string())
+            .is_some());
+        assert!(tree
+            .get(&"/".to_string())
+            .unwrap()
+            .child_ids
+            .get(&"/bin".to_string())
+            .is_some());
     }
 }
