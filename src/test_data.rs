@@ -1,9 +1,9 @@
 use crate::Node;
 
 pub struct DataNode {
-    id: i32,
-    parent_id: Option<i32>,
-    child_ids: Vec<i32>,
+    pub(crate) id: i32,
+    pub(crate) parent_id: Option<i32>,
+    pub(crate) child_ids: Vec<i32>,
 }
 
 impl DataNode {
@@ -34,6 +34,9 @@ impl Node<i32> for DataNode {
     }
 
     fn add_child_id(&mut self, child_id: i32) {
+        if self.child_ids.contains(&child_id) {
+            return;
+        }
         self.child_ids.push(child_id);
     }
 

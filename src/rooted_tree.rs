@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 pub struct RootedTree<I: Eq + PartialEq + Clone, N: Node<I>> {
-    root_node: Option<N>,
-    child_nodes: HashMap<I, N>,
+    pub(crate) root_node: Option<N>,
+    pub(crate) child_nodes: HashMap<I, N>,
 }
 
 impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
@@ -29,6 +29,9 @@ impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
                 return Err(Error::ParentNodeDoesNotExist);
             }
         } else {
+            if node.parent_id().is_some() {
+                return Err(Error::RootNodeHasParent);
+            }
             self.root_node = Some(node);
         }
         Ok(())
@@ -90,6 +93,27 @@ impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
             root_node.parent_id().is_some()
         } else {
             false
+        }
+    }
+
+    pub(crate) fn set_root_node(&mut self, node: N) {
+        self.root_node = Some(node);
+    }
+
+    pub(crate) fn set_child_node(&mut self, node: N) -> Result<()> {
+        if let Some(parent_id) = node.parent_id() {
+            if let Some(parent_node) = self.get_node(&parent_id) {
+                if !parent_node.child_ids_vec().contains(&node.id()) {
+                    return Err(Error::ParentNodeDoesNotContainChild);
+                } else {
+                    self.child_nodes.insert(node.id(), node);
+                    Ok(())
+                }
+            } else {
+                return Err(Error::ParentNodeDoesNotExist);
+            }
+        } else {
+            return Err(Error::ChildNodeHasNoParent);
         }
     }
 }
@@ -154,6 +178,17 @@ mod tests {
     }
 
     #[test]
+    fn fail_to_set_root_with_an_parent_id() {
+        let mut tree = RootedTree::new();
+        let mut node = DataNode::new(1);
+        node.set_parent_id(0);
+        assert!(matches!(
+            tree.add_node(None, node),
+            Err(Error::RootNodeHasParent)
+        ));
+    }
+
+    #[test]
     fn remove_root_node() {
         let mut r_tree = RootedTree::<i32, DataNode>::new();
         let node = DataNode::new(1);
@@ -182,13 +217,86 @@ mod tests {
     #[test]
     fn is_subtree() {
         let mut r_tree = RootedTree::<i32, DataNode>::new();
-        let mut node = DataNode::new(1);
+        let node = DataNode::new(1);
         r_tree.add_node(None, node).unwrap();
         assert_eq!(r_tree.is_subtree(), false);
         let mut r_tree = RootedTree::<i32, DataNode>::new();
         let mut node = DataNode::new(1);
         node.set_parent_id(2);
-        r_tree.add_node(None, node).unwrap();
+        r_tree.set_root_node(node);
         assert_eq!(r_tree.is_subtree(), true);
+    }
+
+    #[test]
+    fn set_root_node() {
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
+        let node = DataNode::new(1);
+        r_tree.set_root_node(node);
+        assert_eq!(r_tree.len(), 1);
+        let node = r_tree.get_node(&1).unwrap();
+        assert_eq!(node.id(), 1);
+        assert_eq!(node.parent_id(), None);
+        assert_eq!(node.child_ids_vec(), vec![]);
+    }
+
+    #[test]
+    fn set_child_node() {
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
+        let mut node = DataNode::new(1);
+        node.add_child_id(2);
+        r_tree.set_root_node(node);
+        let mut node = DataNode::new(2);
+        node.set_parent_id(1);
+        r_tree.set_child_node(node).unwrap();
+        assert_eq!(r_tree.len(), 2);
+        let node = r_tree.get_node(&1).unwrap();
+        assert_eq!(node.id(), 1);
+        assert_eq!(node.parent_id(), None);
+        assert_eq!(node.child_ids_vec(), vec![2]);
+        let node = r_tree.get_node(&2).unwrap();
+        assert_eq!(node.id(), 2);
+        assert_eq!(node.parent_id(), Some(1));
+        assert_eq!(node.child_ids_vec(), vec![]);
+    }
+
+    #[test]
+    fn fail_to_set_child_node_parent_node_does_not_contain_child() {
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
+        let mut node = DataNode::new(1);
+        node.add_child_id(2);
+        r_tree.set_root_node(node);
+        let mut node = DataNode::new(2);
+        node.set_parent_id(3);
+        assert!(matches!(
+            r_tree.set_child_node(node),
+            Err(Error::ParentNodeDoesNotExist)
+        ));
+    }
+
+    #[test]
+    fn fail_to_set_child_node_parent_does_not_exist() {
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
+        let mut node = DataNode::new(1);
+        node.add_child_id(2);
+        r_tree.set_root_node(node);
+        let mut node = DataNode::new(2);
+        node.set_parent_id(3);
+        assert!(matches!(
+            r_tree.set_child_node(node),
+            Err(Error::ParentNodeDoesNotExist)
+        ));
+    }
+
+    #[test]
+    fn fail_to_set_child_node_child_node_has_no_parent() {
+        let mut r_tree = RootedTree::<i32, DataNode>::new();
+        let mut node = DataNode::new(1);
+        node.add_child_id(2);
+        r_tree.set_root_node(node);
+        let node = DataNode::new(2);
+        assert!(matches!(
+            r_tree.set_child_node(node),
+            Err(Error::ChildNodeHasNoParent)
+        ));
     }
 }

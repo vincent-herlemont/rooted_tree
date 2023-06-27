@@ -1,13 +1,15 @@
 mod diff;
-mod from;
 mod node;
 mod rooted_tree;
+mod try_from;
 
+mod display;
 #[cfg(test)]
 mod test_data;
 
 pub use crate::node::Node;
 pub use crate::rooted_tree::RootedTree;
+pub use crate::try_from::*;
 
 use thiserror::Error;
 
@@ -23,4 +25,10 @@ pub enum Error {
     ParentNodeDoesNotExist,
     #[error("Node does not exist")]
     NodeDoesNotExist,
+    #[error("Child node has no parent")]
+    ParentNodeDoesNotContainChild,
+    #[error("Child node has no parent")]
+    ChildNodeHasNoParent,
+    #[error("Child node has no parent")]
+    RootNodeHasParent,
 }
