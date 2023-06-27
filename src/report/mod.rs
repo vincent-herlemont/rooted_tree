@@ -1,82 +1,41 @@
-use crate::{Node, RootedTree};
+mod display;
+mod lvl_string;
+
+pub use display::*;
+
+use crate::{Error as CrateError, Node, RootedTree};
+use lvl_string::*;
 use std::fmt::Display;
+use std::fmt::Write;
 use std::hash::Hash;
+use thiserror::Error;
 use unicode_width::UnicodeWidthStr;
 
-#[derive(Clone)]
-enum LvlChar {
-    Space(u32),
-    SolidBar(u32),
-    SolidAngle(u32),
-    SolidDashAngle(u32),
-    SolidCross(u32),
-    SolidDashCross(u32),
-    DashBar(u32),
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Formatting error")]
+    Formatting(#[from] std::fmt::Error),
 }
 
-impl LvlChar {
-    fn real_len(delta: i32, len: u32) -> usize {
-        if delta.abs() as u32 >= len {
-            return 0;
-        }
-        (len as i32 + delta) as usize
-    }
-}
-
-impl Display for LvlChar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LvlChar::Space(parent_len) => {
+impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I>> RootedTree<I, N> {
+    pub fn report(&self) -> Result<String> {
+        let mut out = String::new();
+        if let Some(root) = &self.root_node {
+            if let (Some(_), len) = get_parent_id_and_len(root) {
                 write!(
-                    f,
-                    "{}",
-                    format!("    {}", " ".repeat(LvlChar::real_len(-1, *parent_len)))
-                )
-            }
-            LvlChar::SolidBar(parent_len) => {
-                write!(
-                    f,
-                    "{}",
-                    format!(" │  {}", " ".repeat(LvlChar::real_len(-1, *parent_len)))
-                )
-            }
-            LvlChar::SolidAngle(parent_len) => {
-                write!(
-                    f,
-                    "{}",
-                    format!(" └──{}", "─".repeat(LvlChar::real_len(-1, *parent_len)))
-                )
-            }
-            LvlChar::SolidDashAngle(parent_len) => {
-                write!(
-                    f,
-                    "{}",
-                    format!(" └╌╌╌╌╌╌{}", "╌".repeat(LvlChar::real_len(3, *parent_len)))
-                )
-            }
-            LvlChar::SolidCross(parent_len) => {
-                write!(
-                    f,
-                    "{}",
-                    format!(" ├──{}", "─".repeat(LvlChar::real_len(-1, *parent_len)))
-                )
-            }
-            LvlChar::SolidDashCross(parent_len) => {
-                write!(
-                    f,
-                    "{}",
-                    format!(" ├╌╌╌╌╌╌{}", "╌".repeat(LvlChar::real_len(3, *parent_len)))
-                )
-            }
-            // LvlChar::DashBar(_) => write!(f, " ╎  "),
-            LvlChar::DashBar(parent_len) => {
-                write!(
-                    f,
-                    "{}",
-                    format!(" ╎  {}", " ".repeat(LvlChar::real_len(-1, *parent_len)))
-                )
+                    out,
+                    "\n{}{}",
+                    LvlChar::DashBar(0),
+                    self.format_node(root, vec![LvlChar::DashBar(len)], "".to_string())
+                )?;
+            } else {
+                write!(out, "{}", self.format_node(root, vec![], "".to_string()))?;
             }
         }
+        write!(out, "Rooted Tree Report\n")?;
+        Ok(out)
     }
 }
 
@@ -86,25 +45,6 @@ fn get_parent_id_and_len<I: Display, N: Node<I>>(node: &N) -> (Option<I>, u32) {
         (Some(parent_id), len as u32)
     } else {
         (None, 0)
-    }
-}
-
-impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I>> Display for RootedTree<I, N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(root) = &self.root_node {
-            if let (Some(_), len) = get_parent_id_and_len(root) {
-                write!(
-                    f,
-                    "\n{}{}",
-                    LvlChar::DashBar(0),
-                    self.format_node(root, vec![LvlChar::DashBar(len)], "".to_string())
-                )?;
-            } else {
-                write!(f, "{}", self.format_node(root, vec![], "".to_string()))?;
-            }
-        }
-        write!(f, "\n")?;
-        Ok(())
     }
 }
 
@@ -183,8 +123,7 @@ mod tests {
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(1), DataNode::new(3)).unwrap();
 
-        // println!("{}", tree);
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -198,7 +137,7 @@ mod tests {
         tree.add_node(Some(1111111111), node).unwrap();
 
         tree.add_node(Some(22222), DataNode::new(4)).unwrap();
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -210,7 +149,7 @@ mod tests {
         tree.add_node(Some(22222), DataNode::new(3)).unwrap();
         tree.add_node(Some(22222), DataNode::new(4)).unwrap();
         tree.add_node(Some(22222), DataNode::new(5)).unwrap();
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -223,7 +162,7 @@ mod tests {
         let mut node = DataNode::new(2);
         node.set_parent_id(1);
         tree.set_child_node(node).unwrap();
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -233,7 +172,7 @@ mod tests {
         node.set_parent_id(0);
         tree.set_root_node(node);
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -249,7 +188,7 @@ mod tests {
 
         tree.add_node(Some(2), DataNode::new(4)).unwrap();
 
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -268,7 +207,7 @@ mod tests {
         node.set_parent_id(1);
         tree.set_child_node(node).unwrap();
 
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
         //        assert_eq!(
         //            format!("{:?}", tree),
         //            format!(
@@ -290,7 +229,7 @@ mod tests {
         tree.add_node(Some(3), DataNode::new(4)).unwrap();
         tree.add_node(Some(4), DataNode::new(5)).unwrap();
 
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -317,7 +256,7 @@ mod tests {
         tree.add_node(Some(10), DataNode::new(15)).unwrap();
         tree.add_node(Some(10), DataNode::new(16)).unwrap();
 
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 
     #[test]
@@ -349,6 +288,6 @@ mod tests {
         tree.add_node(Some(10), DataNode::new(15)).unwrap();
         tree.add_node(Some(10), DataNode::new(16)).unwrap();
 
-        println!("{}", tree);
+        println!("{}", tree.report().unwrap());
     }
 }
