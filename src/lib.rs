@@ -17,18 +17,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Dag error: {0}")]
-    Dag(String),
     #[error("Root node already exists")]
     RootNodeAlreadyExists,
     #[error("Parent node does not exist")]
     ParentNodeDoesNotExist,
     #[error("Node does not exist")]
     NodeDoesNotExist,
-    #[error("Child node has no parent")]
+    #[error("Parent node does not contain child")]
     ParentNodeDoesNotContainChild,
     #[error("Child node has no parent")]
     ChildNodeHasNoParent,
-    #[error("Child node has no parent")]
+    #[error("Root node has parent")]
     RootNodeHasParent,
 }
