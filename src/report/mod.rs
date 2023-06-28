@@ -3,7 +3,7 @@ mod lvl_string;
 
 pub use display::*;
 
-use crate::{Error as CrateError, Node, RootedTree};
+use crate::{Node, RootedTree};
 use lvl_string::*;
 use std::fmt::Display;
 use std::fmt::Write;
@@ -19,22 +19,68 @@ pub enum Error {
     Formatting(#[from] std::fmt::Error),
 }
 
-impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I>> RootedTree<I, N> {
-    pub fn report(&self) -> Result<String> {
+#[derive(Clone)]
+pub enum ChildWrap {
+    Top,
+    Bottom,
+}
+
+impl Default for ChildWrap {
+    fn default() -> Self {
+        Self::Bottom
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct Config<I> {
+    max_children: Option<u32>,
+    child_wrap: ChildWrap,
+    // (node_id, max_lvl_around_node)
+    select_node: Option<(I, u32)>,
+}
+
+impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I> + Clone> RootedTree<I, N> {
+    pub fn report(&self, config: &Config<I>) -> Result<String> {
+        if let Some((node_id, lvl)) = &config.select_node {
+            if let Some(temp_rooted_tree) =
+                self.clone_from_with_lvl(node_id.clone(), Some(lvl.clone()))
+            {
+                return Self::_report(&temp_rooted_tree, config);
+            }
+        }
+        Self::_report(self, config)
+    }
+
+    fn _report(rooted_tree: &RootedTree<I, N>, config: &Config<I>) -> Result<String> {
+        // let node = if let Some((node_id, _)) = config.select_node {
+        //     self.get_node(&node_id)?
+        // } else {
+        //     self.root_node.as_ref().unwrap()
+        // };
+
         let mut out = String::new();
-        if let Some(root) = &self.root_node {
+        if let Some(root) = &rooted_tree.root_node {
             if let (Some(_), len) = get_parent_id_and_len(root) {
                 write!(
                     out,
                     "\n{}{}",
                     LvlChar::DashBar(0),
-                    self.format_node(root, vec![LvlChar::DashBar(len)], "".to_string())
+                    rooted_tree.format_node(
+                        &config,
+                        root,
+                        vec![LvlChar::DashBar(len)],
+                        "".to_string()
+                    )
                 )?;
             } else {
-                write!(out, "{}", self.format_node(root, vec![], "".to_string()))?;
+                write!(
+                    out,
+                    "{}",
+                    rooted_tree.format_node(&config, root, vec![], "".to_string())
+                )?;
             }
         }
-        write!(out, "Rooted Tree Report\n")?;
+        write!(out, "\n")?;
         Ok(out)
     }
 }
@@ -48,8 +94,12 @@ fn get_parent_id_and_len<I: Display, N: Node<I>>(node: &N) -> (Option<I>, u32) {
     }
 }
 
-fn compute_prefixs(lvl_prefixes: &Vec<LvlChar>, suffix: String) -> String {
+fn compute_prefixes(lvl_prefixes: &Vec<LvlChar>, suffix: String) -> String {
     let mut result = String::new();
+    if lvl_prefixes.is_empty() {
+        result.push_str(suffix.as_str());
+        return result;
+    }
     for (index, lvl_prefix) in lvl_prefixes.iter().enumerate() {
         if index == lvl_prefixes.len() - 1 {
             result.push_str(suffix.as_str());
@@ -61,8 +111,14 @@ fn compute_prefixs(lvl_prefixes: &Vec<LvlChar>, suffix: String) -> String {
 }
 
 impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I>> RootedTree<I, N> {
-    fn format_node(&self, node: &N, lvl_prefixes: Vec<LvlChar>, sufix: String) -> String {
-        let prefix = compute_prefixs(&lvl_prefixes, sufix);
+    fn format_node(
+        &self,
+        config: &Config<I>,
+        node: &N,
+        lvl_prefixes: Vec<LvlChar>,
+        suffix: String,
+    ) -> String {
+        let prefix = compute_prefixes(&lvl_prefixes, suffix);
         let mut result = format!("\n{} ", prefix);
 
         let parent_len = if let (Some(parent_id), len) = get_parent_id_and_len(node) {
@@ -74,10 +130,37 @@ impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I>> RootedTree<I, N> {
 
         result.push_str(&format!("{}", node.id()));
 
-        let vec_ids = node.child_ids_vec();
-        let vec_ids_len = vec_ids.len();
+        let mut vec_ids = node.child_ids_vec();
+        let mut vec_ids_len = vec_ids.len();
+
+        // Wrap top
+        if let Some(max_child) = config.max_children {
+            if let ChildWrap::Top = config.child_wrap {
+                if vec_ids_len > max_child as usize {
+                    vec_ids = vec_ids[max_child as usize..vec_ids_len].to_vec();
+                    vec_ids_len = vec_ids.len();
+
+                    let suffix = LvlChar::DashBar(parent_len).to_string();
+                    let prefix = compute_prefixes(&lvl_prefixes, suffix);
+                    result.push_str(&format!("\n{}", prefix));
+                }
+            }
+        }
+
         for (index, child_id) in vec_ids.iter().enumerate() {
             let mut lvl_prefixes = lvl_prefixes.clone();
+            // Wrap bottom
+            if let Some(max_child) = config.max_children {
+                if let ChildWrap::Bottom = config.child_wrap {
+                    if index == max_child as usize {
+                        let suffix = LvlChar::DashBar(parent_len).to_string();
+                        let prefix = compute_prefixes(&lvl_prefixes, suffix);
+                        result.push_str(&format!("\n{}", prefix));
+                        break;
+                    }
+                }
+            }
+
             let current_end_branch = if index == vec_ids_len - 1 {
                 lvl_prefixes.push(LvlChar::Space(parent_len));
                 true
@@ -92,14 +175,14 @@ impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I>> RootedTree<I, N> {
                 } else {
                     LvlChar::SolidCross(parent_len).to_string()
                 };
-                result.push_str(&self.format_node(child, lvl_prefixes.clone(), suffix));
+                result.push_str(&self.format_node(&config, child, lvl_prefixes.clone(), suffix));
             } else {
                 let suffix = if current_end_branch {
                     LvlChar::SolidDashAngle(parent_len).to_string()
                 } else {
                     LvlChar::SolidDashCross(parent_len).to_string()
                 };
-                let prefix = compute_prefixs(&lvl_prefixes, suffix);
+                let prefix = compute_prefixes(&lvl_prefixes, suffix);
                 result.push_str(&format!("\n{} {}", prefix, child_id));
             }
         }
@@ -113,6 +196,51 @@ mod tests {
     use super::*;
     use crate::test_data::*;
 
+    // TODO: Limit deep lvl
+    // TODO: Return line
+    // TODO: Select node center.
+
+    #[test]
+    fn select_node() {
+        let mut tree = RootedTree::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(1), DataNode::new(3)).unwrap();
+        tree.add_node(Some(3), DataNode::new(4)).unwrap();
+        tree.add_node(Some(3), DataNode::new(5)).unwrap();
+        tree.add_node(Some(5), DataNode::new(6)).unwrap();
+        tree.add_node(Some(5), DataNode::new(7)).unwrap();
+        tree.add_node(Some(7), DataNode::new(8)).unwrap();
+        tree.add_node(Some(7), DataNode::new(9)).unwrap();
+        tree.add_node(Some(9), DataNode::new(10)).unwrap();
+        tree.add_node(Some(9), DataNode::new(11)).unwrap();
+
+        println!("{}", tree.report(&Config::default()).unwrap());
+
+        let mut config = Config::default();
+        config.select_node = Some((5, 2));
+        println!("{}", tree.report(&config).unwrap());
+    }
+
+    #[test]
+    fn b_max_child() {
+        let mut tree = RootedTree::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(1), DataNode::new(3)).unwrap();
+        tree.add_node(Some(1), DataNode::new(4)).unwrap();
+        tree.add_node(Some(1), DataNode::new(5)).unwrap();
+
+        let mut config = Config::default();
+        config.max_children = Some(2);
+
+        println!("{}", tree.report(&config.clone()).unwrap());
+
+        config.child_wrap = ChildWrap::Top;
+
+        println!("{}", tree.report(&config).unwrap());
+    }
+
     #[test]
     fn b_test_large_root_sub_tree_key() {
         let mut tree = RootedTree::new();
@@ -123,7 +251,7 @@ mod tests {
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(1), DataNode::new(3)).unwrap();
 
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
@@ -137,7 +265,7 @@ mod tests {
         tree.add_node(Some(1111111111), node).unwrap();
 
         tree.add_node(Some(22222), DataNode::new(4)).unwrap();
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
@@ -149,7 +277,7 @@ mod tests {
         tree.add_node(Some(22222), DataNode::new(3)).unwrap();
         tree.add_node(Some(22222), DataNode::new(4)).unwrap();
         tree.add_node(Some(22222), DataNode::new(5)).unwrap();
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
@@ -162,7 +290,7 @@ mod tests {
         let mut node = DataNode::new(2);
         node.set_parent_id(1);
         tree.set_child_node(node).unwrap();
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
@@ -172,11 +300,11 @@ mod tests {
         node.set_parent_id(0);
         tree.set_root_node(node);
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
-    fn partial_childs() {
+    fn partial_children() {
         let mut tree = RootedTree::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         let mut node = DataNode::new(2);
@@ -188,11 +316,11 @@ mod tests {
 
         tree.add_node(Some(2), DataNode::new(4)).unwrap();
 
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
-    fn test_two_childs() {
+    fn test_two_children() {
         let mut tree = RootedTree::new();
         let mut node = DataNode::new(1);
         node.add_child_id(2);
@@ -207,7 +335,7 @@ mod tests {
         node.set_parent_id(1);
         tree.set_child_node(node).unwrap();
 
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
         //        assert_eq!(
         //            format!("{:?}", tree),
         //            format!(
@@ -221,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn test_nested_childs() {
+    fn test_nested_children() {
         let mut tree = RootedTree::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
@@ -229,11 +357,11 @@ mod tests {
         tree.add_node(Some(3), DataNode::new(4)).unwrap();
         tree.add_node(Some(4), DataNode::new(5)).unwrap();
 
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
-    fn test_nested_childs_2() {
+    fn test_nested_children_2() {
         let mut tree = RootedTree::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
@@ -256,11 +384,11 @@ mod tests {
         tree.add_node(Some(10), DataNode::new(15)).unwrap();
         tree.add_node(Some(10), DataNode::new(16)).unwrap();
 
-        println!("{}", tree.report().unwrap());
+        println!("{}", tree.report(&Config::default()).unwrap());
     }
 
     #[test]
-    fn test_subrooted_tree_nested_childs_2() {
+    fn test_subrooted_tree_nested_children_2() {
         let mut tree = RootedTree::new();
         let mut node = DataNode::new(1);
         node.set_parent_id(0);
@@ -288,6 +416,8 @@ mod tests {
         tree.add_node(Some(10), DataNode::new(15)).unwrap();
         tree.add_node(Some(10), DataNode::new(16)).unwrap();
 
-        println!("{}", tree.report().unwrap());
+        let config = Config::default();
+
+        println!("{}", tree.report(&config).unwrap());
     }
 }

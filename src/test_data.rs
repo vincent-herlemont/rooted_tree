@@ -1,5 +1,6 @@
 use crate::Node;
 
+#[derive(Eq, PartialEq, Clone)]
 pub struct DataNode {
     pub(crate) id: i32,
     pub(crate) parent_id: Option<i32>,

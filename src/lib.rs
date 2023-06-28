@@ -4,12 +4,16 @@ mod report;
 mod rooted_tree;
 mod try_from;
 
+mod clone;
+mod take;
 #[cfg(test)]
 mod test_data;
 
+pub use crate::clone::*;
 pub use crate::node::Node;
 pub use crate::report::*;
 pub use crate::rooted_tree::RootedTree;
+pub use crate::take::*;
 pub use crate::try_from::*;
 
 use thiserror::Error;

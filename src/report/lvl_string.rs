@@ -65,7 +65,6 @@ impl Display for LvlChar {
                     format!(" ├╌╌╌╌╌╌{}", "╌".repeat(LvlChar::real_len(3, *parent_len)))
                 )
             }
-            // LvlChar::DashBar(_) => write!(f, " ╎  "),
             LvlChar::DashBar(parent_len) => {
                 write!(
                     f,
