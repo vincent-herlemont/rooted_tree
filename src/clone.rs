@@ -15,7 +15,7 @@ impl<I: Eq + PartialEq + Clone + Hash, N: Node<I> + Clone> RootedTree<I, N> {
         }
 
         // Clone from a middle node
-        let children = self.list_all_child_ids_with_lvl(&id, lvl);
+        let children = self.list_child_ids_with_lvl(&id, lvl);
         let mut sub_tree = RootedTree::new();
 
         if self.root_node.is_some() && self.root_node.as_ref().unwrap().id() == id && lvl.is_some()

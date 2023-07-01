@@ -42,6 +42,7 @@ pub struct Config<I> {
 impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I> + Clone> RootedTree<I, N> {
     pub fn report(&self, config: &Config<I>) -> Result<String> {
         if let Some((node_id, lvl)) = &config.select_node {
+            // TODO: node_id should be the not parent depending of the lvl
             if let Some(temp_rooted_tree) =
                 self.clone_from_with_lvl(node_id.clone(), Some(lvl.clone()))
             {
@@ -52,12 +53,6 @@ impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I> + Clone> RootedTree<
     }
 
     fn _report(rooted_tree: &RootedTree<I, N>, config: &Config<I>) -> Result<String> {
-        // let node = if let Some((node_id, _)) = config.select_node {
-        //     self.get_node(&node_id)?
-        // } else {
-        //     self.root_node.as_ref().unwrap()
-        // };
-
         let mut out = String::new();
         if let Some(root) = &rooted_tree.root_node {
             if let (Some(_), len) = get_parent_id_and_len(root) {
@@ -201,7 +196,23 @@ mod tests {
     // TODO: Select node center.
 
     #[test]
-    fn select_node() {
+    fn select_node_center_challenge() {
+        let mut tree = RootedTree::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(1), DataNode::new(3)).unwrap();
+        tree.add_node(Some(1), DataNode::new(4)).unwrap();
+        tree.add_node(Some(1), DataNode::new(5)).unwrap();
+        tree.add_node(Some(1), DataNode::new(6)).unwrap();
+
+        println!("{}", tree.report(&Config::default()).unwrap());
+
+        let mut config = Config::default();
+        config.select_node = Some((4, 2));
+    }
+
+    #[test]
+    fn select_node_lvl_challenge() {
         let mut tree = RootedTree::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
@@ -218,7 +229,8 @@ mod tests {
         println!("{}", tree.report(&Config::default()).unwrap());
 
         let mut config = Config::default();
-        config.select_node = Some((5, 2));
+        config.select_node = Some((5, 1));
+
         println!("{}", tree.report(&config).unwrap());
     }
 

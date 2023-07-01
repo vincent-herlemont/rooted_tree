@@ -16,7 +16,7 @@ impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
         }
 
         // Take from a middle node
-        let children = self.list_all_child_ids(&id);
+        let children = self.list_child_ids(&id);
         let mut sub_tree = RootedTree::new();
         sub_tree.root_node = self.child_nodes.remove(&id);
         for child_id in children {

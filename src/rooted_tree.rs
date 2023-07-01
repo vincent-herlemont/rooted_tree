@@ -117,11 +117,11 @@ impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
         }
     }
 
-    pub(crate) fn list_all_child_ids(&self, id: &I) -> Vec<I> {
-        self.list_all_child_ids_with_lvl(id, None)
+    pub(crate) fn list_child_ids(&self, id: &I) -> Vec<I> {
+        self.list_child_ids_with_lvl(id, None)
     }
 
-    pub(crate) fn list_all_child_ids_with_lvl(&self, id: &I, lvl: Option<u32>) -> Vec<I> {
+    pub(crate) fn list_child_ids_with_lvl(&self, id: &I, lvl: Option<u32>) -> Vec<I> {
         if let Some(lvl) = lvl {
             if lvl == 0 {
                 return vec![];
@@ -148,7 +148,39 @@ impl<I: Eq + PartialEq + Clone + Hash, N: Node<I>> RootedTree<I, N> {
         if let Some(node) = root_node.or_else(|| self.child_nodes.get(id)) {
             for child_id in node.child_ids_vec() {
                 out.push(child_id.clone());
-                out.extend(self.list_all_child_ids_with_lvl(&child_id, lvl.map(|lvl| lvl - 1)));
+                out.extend(self.list_child_ids_with_lvl(&child_id, lvl.map(|lvl| lvl - 1)));
+            }
+        }
+        out
+    }
+
+    pub(crate) fn list_parent_ids(&self, id: &I) -> Vec<I> {
+        self.list_parent_ids_with_lvl(id, None)
+    }
+
+    pub(crate) fn list_parent_ids_with_lvl(&self, id: &I, lvl: Option<u32>) -> Vec<I> {
+        if let Some(lvl) = lvl {
+            if lvl == 0 {
+                return vec![];
+            }
+        }
+
+        // Return all parent ids from child node
+        let mut out = vec![];
+        if let Some(node) = self.child_nodes.get(id) {
+            if let Some(parent_id) = node.parent_id() {
+                out.push(parent_id.clone());
+                out.extend(self.list_parent_ids_with_lvl(&parent_id, lvl.map(|lvl| lvl - 1)));
+            }
+        }
+
+        // Return all parent ids from root node
+        if let Some(node) = self.root_node.as_ref() {
+            if &node.id() == id {
+                if let Some(parent_id) = node.parent_id() {
+                    out.push(parent_id.clone());
+                }
+                return out;
             }
         }
         out
@@ -167,13 +199,136 @@ mod tests {
     use crate::test_data::*;
 
     #[test]
+    fn list_parent_from_end_child_with_lvl() {
+        let mut tree = RootedTree::<i32, DataNode>::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(2), DataNode::new(3)).unwrap();
+
+        let ids = tree.list_parent_ids_with_lvl(&3, Some(1));
+        assert_eq!(ids, vec![2]);
+        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(2));
+        ids.sort();
+        assert_eq!(ids, vec![1, 2]);
+
+        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(3));
+        ids.sort();
+        assert_eq!(ids, vec![1, 2]);
+
+        // From subtree
+        tree.get_mut_node(&1).unwrap().set_parent_id(0);
+        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(2));
+        ids.sort();
+        assert_eq!(ids, vec![1, 2]);
+        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(3));
+        ids.sort();
+        assert_eq!(ids, vec![0, 1, 2]);
+
+        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(0));
+        ids.sort();
+        assert_eq!(ids, vec![]);
+    }
+
+    #[test]
+    fn list_parent_from_child_with_lvl() {
+        let mut tree = RootedTree::<i32, DataNode>::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(2), DataNode::new(3)).unwrap();
+
+        let ids = tree.list_parent_ids_with_lvl(&2, Some(1));
+        assert_eq!(ids, vec![1]);
+
+        // From subtree
+        tree.get_mut_node(&1).unwrap().set_parent_id(0);
+
+        let ids = tree.list_parent_ids_with_lvl(&2, Some(1));
+        assert_eq!(ids, vec![1]);
+        let mut ids = tree.list_parent_ids_with_lvl(&2, Some(2));
+        ids.sort();
+        assert_eq!(ids, vec![0, 1]);
+    }
+
+    #[test]
+    fn list_parent_from_root_with_lvl() {
+        let mut tree = RootedTree::<i32, DataNode>::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(2), DataNode::new(3)).unwrap();
+
+        let ids = tree.list_parent_ids_with_lvl(&1, Some(1));
+        assert_eq!(ids, vec![]);
+
+        // From subtree
+        tree.get_mut_node(&1).unwrap().set_parent_id(0);
+
+        let ids = tree.list_parent_ids_with_lvl(&1, Some(1));
+        assert_eq!(ids, vec![0]);
+
+        let ids = tree.list_parent_ids_with_lvl(&1, Some(0));
+        assert_eq!(ids, vec![]);
+    }
+
+    #[test]
+    fn list_all_parent_from_end_child() {
+        let mut tree = RootedTree::<i32, DataNode>::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(2), DataNode::new(3)).unwrap();
+
+        let mut ids = tree.list_parent_ids(&3);
+        ids.sort();
+        assert_eq!(ids, vec![1, 2]);
+
+        // From subtree
+        tree.get_mut_node(&1).unwrap().set_parent_id(0);
+        let mut ids = tree.list_parent_ids(&3);
+        ids.sort();
+        assert_eq!(ids, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn list_all_parent_from_child() {
+        let mut tree = RootedTree::<i32, DataNode>::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(2), DataNode::new(3)).unwrap();
+
+        let ids = tree.list_parent_ids(&2);
+        assert_eq!(ids, vec![1]);
+
+        // From subtree
+        tree.get_mut_node(&1).unwrap().set_parent_id(0);
+        let mut ids = tree.list_parent_ids(&2);
+        ids.sort();
+        assert_eq!(ids, vec![0, 1]);
+    }
+
+    #[test]
+    fn list_all_parent_from_root() {
+        let mut tree = RootedTree::<i32, DataNode>::new();
+        tree.add_node(None, DataNode::new(1)).unwrap();
+        tree.add_node(Some(1), DataNode::new(2)).unwrap();
+        tree.add_node(Some(2), DataNode::new(3)).unwrap();
+
+        let ids = tree.list_parent_ids(&1);
+        assert_eq!(ids, vec![]);
+
+        // From subtree
+        tree.get_mut_node(&1).unwrap().set_parent_id(0);
+
+        let ids = tree.list_parent_ids(&1);
+        assert_eq!(ids, vec![0]);
+    }
+
+    #[test]
     fn list_all_child_ids_from_root() {
         let mut tree = RootedTree::<i32, DataNode>::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let mut ids = tree.list_all_child_ids(&1);
+        let mut ids = tree.list_child_ids(&1);
         ids.sort();
         assert_eq!(ids, vec![2, 3]);
     }
@@ -185,7 +340,7 @@ mod tests {
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let ids = tree.list_all_child_ids(&2);
+        let ids = tree.list_child_ids(&2);
         assert_eq!(ids, vec![3]);
     }
 
@@ -196,42 +351,42 @@ mod tests {
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let ids = tree.list_all_child_ids(&3);
+        let ids = tree.list_child_ids(&3);
         assert_eq!(ids, vec![]);
     }
 
     #[test]
-    fn list_all_child_ids_with_lvl_from_root() {
+    fn list_child_ids_with_lvl_from_root() {
         let mut tree = RootedTree::<i32, DataNode>::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let mut ids = tree.list_all_child_ids_with_lvl(&1, Some(1));
+        let mut ids = tree.list_child_ids_with_lvl(&1, Some(1));
         ids.sort();
         assert_eq!(ids, vec![2]);
     }
 
     #[test]
-    fn list_all_child_ids_with_lvl_from_child() {
+    fn list_child_ids_with_lvl_from_child() {
         let mut tree = RootedTree::<i32, DataNode>::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let mut ids = tree.list_all_child_ids_with_lvl(&2, Some(1));
+        let mut ids = tree.list_child_ids_with_lvl(&2, Some(1));
         ids.sort();
         assert_eq!(ids, vec![3]);
     }
 
     #[test]
-    fn list_all_child_ids_with_lvl_from_end_child() {
+    fn list_child_ids_with_lvl_from_end_child() {
         let mut tree = RootedTree::<i32, DataNode>::new();
         tree.add_node(None, DataNode::new(1)).unwrap();
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let mut ids = tree.list_all_child_ids_with_lvl(&3, Some(1));
+        let mut ids = tree.list_child_ids_with_lvl(&3, Some(1));
         ids.sort();
         assert_eq!(ids, vec![]);
     }
