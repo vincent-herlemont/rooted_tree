@@ -31,12 +31,22 @@ impl Default for ChildWrap {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Config<I> {
     max_children: Option<u32>,
     child_wrap: ChildWrap,
     // (node_id, max_lvl_around_node)
     select_node: Option<(I, u32)>,
+}
+
+impl<I> Default for Config<I> {
+    fn default() -> Self {
+        Self {
+            max_children: None,
+            child_wrap: ChildWrap::Bottom,
+            select_node: None,
+        }
+    }
 }
 
 #[derive(Clone)]
