@@ -207,25 +207,20 @@ mod tests {
 
         let ids = tree.list_parent_ids_with_lvl(&3, Some(1));
         assert_eq!(ids, vec![2]);
-        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(2));
-        ids.sort();
-        assert_eq!(ids, vec![1, 2]);
+        let ids = tree.list_parent_ids_with_lvl(&3, Some(2));
+        assert_eq!(ids, vec![2, 1]);
 
-        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(3));
-        ids.sort();
-        assert_eq!(ids, vec![1, 2]);
+        let ids = tree.list_parent_ids_with_lvl(&3, Some(3));
+        assert_eq!(ids, vec![2, 1]);
 
         // From subtree
         tree.get_mut_node(&1).unwrap().set_parent_id(0);
-        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(2));
-        ids.sort();
-        assert_eq!(ids, vec![1, 2]);
-        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(3));
-        ids.sort();
-        assert_eq!(ids, vec![0, 1, 2]);
+        let ids = tree.list_parent_ids_with_lvl(&3, Some(2));
+        assert_eq!(ids, vec![2, 1]);
+        let ids = tree.list_parent_ids_with_lvl(&3, Some(3));
+        assert_eq!(ids, vec![2, 1, 0]);
 
-        let mut ids = tree.list_parent_ids_with_lvl(&3, Some(0));
-        ids.sort();
+        let ids = tree.list_parent_ids_with_lvl(&3, Some(0));
         assert_eq!(ids, vec![]);
     }
 
@@ -244,9 +239,8 @@ mod tests {
 
         let ids = tree.list_parent_ids_with_lvl(&2, Some(1));
         assert_eq!(ids, vec![1]);
-        let mut ids = tree.list_parent_ids_with_lvl(&2, Some(2));
-        ids.sort();
-        assert_eq!(ids, vec![0, 1]);
+        let ids = tree.list_parent_ids_with_lvl(&2, Some(2));
+        assert_eq!(ids, vec![1, 0]);
     }
 
     #[test]
@@ -276,15 +270,13 @@ mod tests {
         tree.add_node(Some(1), DataNode::new(2)).unwrap();
         tree.add_node(Some(2), DataNode::new(3)).unwrap();
 
-        let mut ids = tree.list_parent_ids(&3);
-        ids.sort();
-        assert_eq!(ids, vec![1, 2]);
+        let ids = tree.list_parent_ids(&3);
+        assert_eq!(ids, vec![2, 1]);
 
         // From subtree
         tree.get_mut_node(&1).unwrap().set_parent_id(0);
-        let mut ids = tree.list_parent_ids(&3);
-        ids.sort();
-        assert_eq!(ids, vec![0, 1, 2]);
+        let ids = tree.list_parent_ids(&3);
+        assert_eq!(ids, vec![2, 1, 0]);
     }
 
     #[test]
@@ -299,9 +291,8 @@ mod tests {
 
         // From subtree
         tree.get_mut_node(&1).unwrap().set_parent_id(0);
-        let mut ids = tree.list_parent_ids(&2);
-        ids.sort();
-        assert_eq!(ids, vec![0, 1]);
+        let ids = tree.list_parent_ids(&2);
+        assert_eq!(ids, vec![1, 0]);
     }
 
     #[test]

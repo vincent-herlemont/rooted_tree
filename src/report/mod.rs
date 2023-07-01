@@ -39,12 +39,13 @@ pub struct Config<I> {
     select_node: Option<(I, u32)>,
 }
 
-impl<I: Eq + PartialEq + Clone + Hash + Display, N: Node<I> + Clone> RootedTree<I, N> {
+impl<I: Eq + PartialEq + Clone + Hash + Display + Ord, N: Node<I> + Clone> RootedTree<I, N> {
     pub fn report(&self, config: &Config<I>) -> Result<String> {
         if let Some((node_id, lvl)) = &config.select_node {
-            // TODO: node_id should be the not parent depending of the lvl
+            let parent_ids = self.list_parent_ids_with_lvl(&node_id, Some(lvl.clone()));
+            let root_id = parent_ids.last().unwrap_or(node_id);
             if let Some(temp_rooted_tree) =
-                self.clone_from_with_lvl(node_id.clone(), Some(lvl.clone()))
+                self.clone_from_with_lvl(root_id.clone(), Some((lvl.clone() * 2) + 1))
             {
                 return Self::_report(&temp_rooted_tree, config);
             }
@@ -208,7 +209,7 @@ mod tests {
         println!("{}", tree.report(&Config::default()).unwrap());
 
         let mut config = Config::default();
-        config.select_node = Some((4, 2));
+        config.select_node = Some((4, 1));
     }
 
     #[test]
@@ -230,7 +231,10 @@ mod tests {
 
         let mut config = Config::default();
         config.select_node = Some((5, 1));
+        println!("{}", tree.report(&config).unwrap());
 
+        let mut config = Config::default();
+        config.select_node = Some((5, 2));
         println!("{}", tree.report(&config).unwrap());
     }
 
