@@ -1,16 +1,12 @@
-use crate::{Config, Node, RootedTree};
-use std::fmt::Display;
+use crate::{Node, RootedTree};
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 
-impl<I: Eq + PartialEq + Clone + Hash + Ord + Display, N: Node<I> + Clone> Display
+impl<I: Eq + PartialEq + Clone + Hash + Ord + Display, N: Node<I> + Clone> Debug
     for RootedTree<I, N>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut lvl_string = self
-            .report(&Config::default())
-            .map_err(|_| std::fmt::Error)?;
-        lvl_string.remove(0);
-        write!(f, "{}", lvl_string)
+        write!(f, "{}", self)
     }
 }
 
@@ -25,7 +21,7 @@ mod tests {
         tree.add_node(None, DataNode::new(0)).unwrap();
         tree.add_node(Some(0), DataNode::new(1)).unwrap();
 
-        let string = format!("{}", tree);
+        let string = format!("{:?}", tree);
         assert_eq!(
             string,
             " 0

@@ -1,6 +1,8 @@
+mod debug;
 mod display;
 mod lvl_string;
 
+pub use debug::*;
 pub use display::*;
 
 use crate::{Node, RootedTree};
