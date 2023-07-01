@@ -9,6 +9,7 @@ pub(crate) enum LvlChar {
     SolidCross(u32),
     SolidDashCross(u32),
     DashBar(u32),
+    Empty,
 }
 
 impl LvlChar {
@@ -71,6 +72,9 @@ impl Display for LvlChar {
                     "{}",
                     format!(" ╎  {}", " ".repeat(LvlChar::real_len(-1, *parent_len)))
                 )
+            }
+            LvlChar::Empty => {
+                write!(f, "")
             }
         }
     }
